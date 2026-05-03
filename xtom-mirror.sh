@@ -37,7 +37,8 @@ for i in {1..8}; do
     echo "  $i) ${REGIONS[$i]}"
 done
 
-read -p "请输入数字 [1-8]: " REGION_CHOICE
+# 强制从终端读取，兼容 curl | bash 一键运行
+read -p "请输入数字 [1-8]: " REGION_CHOICE < /dev/tty
 
 if [[ -z "${MIRRORS[$REGION_CHOICE]}" ]]; then
     echo "❌ 无效的选择，脚本退出。"
@@ -54,7 +55,8 @@ echo "  2) Ubuntu 24.04 (Noble) - DEB822 格式"
 echo "  3) Debian 12 (Bookworm)"
 echo "  4) Debian 13 (Trixie)"
 
-read -p "请输入数字 [1-4]: " OS_CHOICE
+# 强制从终端读取，兼容 curl | bash 一键运行
+read -p "请输入数字 [1-4]: " OS_CHOICE < /dev/tty
 
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 
@@ -63,21 +65,26 @@ case $OS_CHOICE in
         OS_TYPE="ubuntu"
         CODENAME="jammy"
         TARGET_FILE="/etc/apt/sources.list"
+        BACKUP_FILE="/etc/apt/sources.list.bak.${TIMESTAMP}"
         ;;
     2)
         OS_TYPE="ubuntu24"
         CODENAME="noble"
         TARGET_FILE="/etc/apt/sources.list.d/ubuntu.sources"
+        # 备份存放在 /etc/apt 根目录，避免触发 sources.list.d 的格式警告
+        BACKUP_FILE="/etc/apt/ubuntu.sources.bak.${TIMESTAMP}" 
         ;;
     3)
         OS_TYPE="debian"
         CODENAME="bookworm"
         TARGET_FILE="/etc/apt/sources.list"
+        BACKUP_FILE="/etc/apt/sources.list.bak.${TIMESTAMP}"
         ;;
     4)
         OS_TYPE="debian"
         CODENAME="trixie"
         TARGET_FILE="/etc/apt/sources.list"
+        BACKUP_FILE="/etc/apt/sources.list.bak.${TIMESTAMP}"
         ;;
     *)
         echo "❌ 无效的系统选择，脚本退出。"
@@ -87,10 +94,10 @@ esac
 
 echo "-----------------------------------------"
 
-# 备份逻辑
+# 备份逻辑优化：避免在 .d 目录留下无效后缀文件
 if [ -f "$TARGET_FILE" ]; then
-    cp "$TARGET_FILE" "${TARGET_FILE}.bak.${TIMESTAMP}"
-    echo "📦 已备份原配置文件至: ${TARGET_FILE}.bak.${TIMESTAMP}"
+    cp "$TARGET_FILE" "$BACKUP_FILE"
+    echo "📦 已备份原配置文件至: $BACKUP_FILE"
 else
     echo "⚠️ 未找到原配置文件，跳过备份直接创建..."
 fi
@@ -98,7 +105,7 @@ fi
 # 针对 Ubuntu 24.04 从老版本升级上来的残留清理
 if [ "$OS_CHOICE" -eq 2 ] && [ -f "/etc/apt/sources.list" ]; then
     mv /etc/apt/sources.list "/etc/apt/sources.list.disabled.${TIMESTAMP}"
-    echo "📦 检测到遗留的 /etc/apt/sources.list，已将其重命名禁用。"
+    echo "📦 检测到遗留的 /etc/apt/sources.list，已将其重命名并禁用。"
 fi
 
 # 写入新源
