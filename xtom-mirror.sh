@@ -30,7 +30,7 @@ declare -A REGIONS=(
 )
 
 echo "========================================="
-echo "       xTom APT 镜像源一键配置脚本       "
+echo "        xTom APT 镜像源一键配置脚本        "
 echo "========================================="
 echo "请选择服务器所在地区 / 目标镜像源："
 for i in {1..8}; do
@@ -54,9 +54,10 @@ echo "  1) Ubuntu 22.04 (Jammy)"
 echo "  2) Ubuntu 24.04 (Noble) - DEB822 格式"
 echo "  3) Debian 12 (Bookworm)"
 echo "  4) Debian 13 (Trixie)"
+echo "  5) Ubuntu 26.04 (Resolute) - DEB822 格式"
 
 # 强制从终端读取，兼容 curl | bash 一键运行
-read -p "请输入数字 [1-4]: " OS_CHOICE < /dev/tty
+read -p "请输入数字 [1-5]: " OS_CHOICE < /dev/tty
 
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 
@@ -86,12 +87,19 @@ case $OS_CHOICE in
         TARGET_FILE="/etc/apt/sources.list"
         BACKUP_FILE="/etc/apt/sources.list.bak.${TIMESTAMP}"
         ;;
+    5)
+        OS_TYPE="ubuntu26"
+        CODENAME="resolute"
+        TARGET_FILE="/etc/apt/sources.list.d/ubuntu.sources"
+        BACKUP_FILE="/etc/apt/ubuntu.sources.bak.${TIMESTAMP}" 
+        ;;
     *)
         echo "❌ 无效的系统选择，脚本退出。"
         exit 1
         ;;
 esac
 
+echo "✅ 识别到系统代号: $CODENAME"
 echo "-----------------------------------------"
 
 # 备份逻辑优化：避免在 .d 目录留下无效后缀文件
@@ -102,8 +110,8 @@ else
     echo "⚠️ 未找到原配置文件，跳过备份直接创建..."
 fi
 
-# 针对 Ubuntu 24.04 从老版本升级上来的残留清理
-if [ "$OS_CHOICE" -eq 2 ] && [ -f "/etc/apt/sources.list" ]; then
+# 针对 Ubuntu 24.04 及以上版本从老版本升级上来的残留清理
+if [[ "$OS_CHOICE" -eq 2 || "$OS_CHOICE" -eq 5 ]] && [ -f "/etc/apt/sources.list" ]; then
     mv /etc/apt/sources.list "/etc/apt/sources.list.disabled.${TIMESTAMP}"
     echo "📦 检测到遗留的 /etc/apt/sources.list，已将其重命名并禁用。"
 fi
@@ -119,7 +127,7 @@ deb $BASE_URL/ubuntu/ ${CODENAME}-backports main restricted universe multiverse
 deb $BASE_URL/ubuntu/ ${CODENAME}-security main restricted universe multiverse
 EOF
 
-elif [ "$OS_CHOICE" -eq 2 ]; then
+elif [[ "$OS_CHOICE" -eq 2 || "$OS_CHOICE" -eq 5 ]]; then
 mkdir -p /etc/apt/sources.list.d
 cat > "$TARGET_FILE" <<EOF
 Types: deb
